@@ -1,0 +1,583 @@
+name: housing_platform_analytics
+description: Semantic model for Housing for All Platform - enables natural language queries about borrowers, loans, eligibility, RMBS pools, EMI payments, and platform analytics
+
+tables:
+  - name: BORROWERS
+    description: Registered borrowers with KYC and financial information
+    base_table:
+      database: HOUSING_PLATFORM
+      schema: CORE
+      table: BORROWERS
+    primary_key:
+      columns:
+        - AADHAAR_ID
+    dimensions:
+      - name: AADHAAR_ID
+        description: Unique 12-digit Aadhaar identifier for the borrower
+        expr: AADHAAR_ID
+        data_type: VARCHAR
+        unique: true
+      - name: NAME
+        description: Full name of the borrower
+        expr: NAME
+        data_type: VARCHAR
+      - name: KYC_VERIFIED
+        description: Whether KYC verification is complete
+        expr: KYC_VERIFIED
+        data_type: BOOLEAN
+    time_dimensions:
+      - name: DATE_OF_BIRTH
+        description: Borrower's date of birth
+        expr: DATE_OF_BIRTH
+        data_type: DATE
+      - name: CREATED_AT
+        description: When the borrower record was created
+        expr: CREATED_AT
+        data_type: TIMESTAMP
+    measures:
+      - name: MONTHLY_INCOME
+        description: Monthly income in INR
+        expr: MONTHLY_INCOME
+        data_type: NUMBER
+      - name: MONTHLY_LIABILITIES
+        description: Monthly debt obligations in INR
+        expr: MONTHLY_LIABILITIES
+        data_type: NUMBER
+      - name: CREDIT_SCORE
+        description: CIBIL credit score (300-900)
+        expr: CREDIT_SCORE
+        data_type: NUMBER
+      - name: DTI_RATIO
+        description: Debt-to-Income ratio calculated as liabilities/income
+        expr: MONTHLY_LIABILITIES / NULLIF(MONTHLY_INCOME, 0)
+        data_type: NUMBER
+      - name: AGE
+        description: Current age of the borrower in years
+        expr: DATEDIFF(YEAR, DATE_OF_BIRTH, CURRENT_DATE())
+        data_type: NUMBER
+      - name: BORROWER_COUNT
+        description: Count of borrowers
+        expr: COUNT(DISTINCT AADHAAR_ID)
+        data_type: NUMBER
+        default_aggregation: sum
+
+  - name: LOANS
+    description: Housing loan applications and disbursements
+    base_table:
+      database: HOUSING_PLATFORM
+      schema: CORE
+      table: LOANS
+    primary_key:
+      columns:
+        - LOAN_ID
+    dimensions:
+      - name: LOAN_ID
+        description: Unique loan identifier
+        expr: LOAN_ID
+        data_type: VARCHAR
+        unique: true
+      - name: BORROWER_ID
+        description: Aadhaar ID of the borrower
+        expr: BORROWER_ID
+        data_type: VARCHAR
+      - name: STATUS
+        description: Loan status (ACTIVE, PENDING, APPROVED, REJECTED, CLOSED)
+        expr: STATUS
+        data_type: VARCHAR
+      - name: POOL_ID
+        description: RMBS pool assignment
+        expr: POOL_ID
+        data_type: VARCHAR
+    time_dimensions:
+      - name: DISBURSEMENT_DATE
+        description: Date when loan was disbursed
+        expr: DISBURSEMENT_DATE
+        data_type: DATE
+      - name: POOL_ELIGIBLE_DATE
+        description: Date when loan becomes eligible for RMBS pooling (6 months after disbursement)
+        expr: POOL_ELIGIBLE_DATE
+        data_type: DATE
+    measures:
+      - name: AMOUNT
+        description: Loan principal amount in INR
+        expr: AMOUNT
+        data_type: NUMBER
+      - name: INTEREST_RATE
+        description: Annual interest rate as decimal (e.g., 0.075 for 7.5%)
+        expr: INTEREST_RATE
+        data_type: NUMBER
+      - name: TENURE_MONTHS
+        description: Loan tenure in months
+        expr: TENURE_MONTHS
+        data_type: NUMBER
+      - name: TOTAL_LOAN_AMOUNT
+        description: Sum of all loan amounts
+        expr: SUM(AMOUNT)
+        data_type: NUMBER
+        default_aggregation: sum
+      - name: LOAN_COUNT
+        description: Count of loans
+        expr: COUNT(DISTINCT LOAN_ID)
+        data_type: NUMBER
+        default_aggregation: sum
+      - name: AVG_LOAN_AMOUNT
+        description: Average loan amount
+        expr: AVG(AMOUNT)
+        data_type: NUMBER
+        default_aggregation: avg
+
+  - name: RMBS_POOLS
+    description: Residential Mortgage-Backed Securities pools
+    base_table:
+      database: HOUSING_PLATFORM
+      schema: CORE
+      table: RMBS_POOLS
+    primary_key:
+      columns:
+        - POOL_ID
+    dimensions:
+      - name: POOL_ID
+        description: Unique pool identifier (e.g., RMBS-2025-Q4)
+        expr: POOL_ID
+        data_type: VARCHAR
+        unique: true
+      - name: NAME
+        description: Pool name
+        expr: NAME
+        data_type: VARCHAR
+      - name: TRUSTEE
+        description: Pool trustee organization
+        expr: TRUSTEE
+        data_type: VARCHAR
+      - name: STATUS
+        description: Pool status (OPEN, CLOSED)
+        expr: STATUS
+        data_type: VARCHAR
+    time_dimensions:
+      - name: AGGREGATION_DATE
+        description: Date when pool was created
+        expr: AGGREGATION_DATE
+        data_type: DATE
+    measures:
+      - name: TOTAL_VALUE
+        description: Total value of loans in the pool (INR)
+        expr: TOTAL_VALUE
+        data_type: NUMBER
+      - name: LOAN_COUNT
+        description: Number of loans in the pool
+        expr: LOAN_COUNT
+        data_type: NUMBER
+      - name: POOL_COUNT
+        description: Count of pools
+        expr: COUNT(DISTINCT POOL_ID)
+        data_type: NUMBER
+        default_aggregation: sum
+
+  - name: EMI_PAYMENTS
+    description: EMI payment records for all loans
+    base_table:
+      database: HOUSING_PLATFORM
+      schema: CORE
+      table: EMI_PAYMENTS
+    primary_key:
+      columns:
+        - PAYMENT_ID
+    dimensions:
+      - name: PAYMENT_ID
+        description: Unique payment identifier
+        expr: PAYMENT_ID
+        data_type: VARCHAR
+        unique: true
+      - name: LOAN_ID
+        description: Associated loan ID
+        expr: LOAN_ID
+        data_type: VARCHAR
+      - name: PAYMENT_STATUS
+        description: Payment status (PAID, PENDING, OVERDUE, PARTIAL)
+        expr: PAYMENT_STATUS
+        data_type: VARCHAR
+      - name: PAYMENT_MODE
+        description: Payment mode (NACH, UPI, NEFT, CHEQUE)
+        expr: PAYMENT_MODE
+        data_type: VARCHAR
+      - name: TRANSACTION_REF
+        description: Transaction reference number
+        expr: TRANSACTION_REF
+        data_type: VARCHAR
+    time_dimensions:
+      - name: DUE_DATE
+        description: EMI due date
+        expr: DUE_DATE
+        data_type: DATE
+      - name: PAID_DATE
+        description: Actual payment date
+        expr: PAID_DATE
+        data_type: DATE
+    measures:
+      - name: EMI_NUMBER
+        description: EMI sequence number
+        expr: EMI_NUMBER
+        data_type: NUMBER
+      - name: TOTAL_EMI
+        description: Total EMI amount due
+        expr: TOTAL_EMI
+        data_type: NUMBER
+      - name: PAID_AMOUNT
+        description: Amount actually paid
+        expr: PAID_AMOUNT
+        data_type: NUMBER
+      - name: PRINCIPAL_COMPONENT
+        description: Principal portion of EMI
+        expr: PRINCIPAL_COMPONENT
+        data_type: NUMBER
+      - name: INTEREST_COMPONENT
+        description: Interest portion of EMI
+        expr: INTEREST_COMPONENT
+        data_type: NUMBER
+      - name: TOTAL_COLLECTED
+        description: Sum of all payments collected
+        expr: SUM(PAID_AMOUNT)
+        data_type: NUMBER
+        default_aggregation: sum
+      - name: TOTAL_DUE
+        description: Sum of all EMIs due
+        expr: SUM(TOTAL_EMI)
+        data_type: NUMBER
+        default_aggregation: sum
+
+  - name: LOAN_AMORTIZATION
+    description: Amortization schedule for loans showing EMI breakdown
+    base_table:
+      database: HOUSING_PLATFORM
+      schema: CORE
+      table: LOAN_AMORTIZATION
+    primary_key:
+      columns:
+        - SCHEDULE_ID
+    dimensions:
+      - name: SCHEDULE_ID
+        description: Unique schedule entry ID
+        expr: SCHEDULE_ID
+        data_type: VARCHAR
+        unique: true
+      - name: LOAN_ID
+        description: Associated loan ID
+        expr: LOAN_ID
+        data_type: VARCHAR
+    time_dimensions:
+      - name: DUE_DATE
+        description: EMI due date
+        expr: DUE_DATE
+        data_type: DATE
+    measures:
+      - name: EMI_NUMBER
+        description: EMI sequence number
+        expr: EMI_NUMBER
+        data_type: NUMBER
+      - name: OPENING_BALANCE
+        description: Loan balance at start of period
+        expr: OPENING_BALANCE
+        data_type: NUMBER
+      - name: EMI_AMOUNT
+        description: Monthly EMI amount
+        expr: EMI_AMOUNT
+        data_type: NUMBER
+      - name: PRINCIPAL_COMPONENT
+        description: Principal portion of EMI
+        expr: PRINCIPAL_COMPONENT
+        data_type: NUMBER
+      - name: INTEREST_COMPONENT
+        description: Interest portion of EMI
+        expr: INTEREST_COMPONENT
+        data_type: NUMBER
+      - name: CLOSING_BALANCE
+        description: Loan balance at end of period
+        expr: CLOSING_BALANCE
+        data_type: NUMBER
+
+  - name: INVESTOR_PORTFOLIO
+    description: Investor investments in RMBS pools
+    base_table:
+      database: HOUSING_PLATFORM
+      schema: CORE
+      table: INVESTOR_PORTFOLIO
+    primary_key:
+      columns:
+        - INVESTMENT_ID
+    dimensions:
+      - name: INVESTMENT_ID
+        description: Unique investment identifier
+        expr: INVESTMENT_ID
+        data_type: VARCHAR
+        unique: true
+      - name: INVESTOR_ID
+        description: Investor identifier
+        expr: INVESTOR_ID
+        data_type: VARCHAR
+      - name: POOL_ID
+        description: RMBS pool invested in
+        expr: POOL_ID
+        data_type: VARCHAR
+    time_dimensions:
+      - name: INVESTMENT_DATE
+        description: Date of investment
+        expr: INVESTMENT_DATE
+        data_type: DATE
+    measures:
+      - name: INVESTMENT_AMOUNT
+        description: Amount invested
+        expr: INVESTMENT_AMOUNT
+        data_type: NUMBER
+      - name: UNITS
+        description: Number of units purchased
+        expr: UNITS
+        data_type: NUMBER
+      - name: UNIT_NAV
+        description: NAV per unit at investment
+        expr: UNIT_NAV
+        data_type: NUMBER
+      - name: CURRENT_VALUE
+        description: Current value of investment
+        expr: CURRENT_VALUE
+        data_type: NUMBER
+      - name: TOTAL_INVESTMENT
+        description: Sum of all investments
+        expr: SUM(INVESTMENT_AMOUNT)
+        data_type: NUMBER
+        default_aggregation: sum
+
+  - name: AUDIT_LOG
+    description: Audit trail of all platform actions
+    base_table:
+      database: HOUSING_PLATFORM
+      schema: CORE
+      table: AUDIT_LOG
+    primary_key:
+      columns:
+        - LOG_ID
+    dimensions:
+      - name: LOG_ID
+        description: Unique log identifier
+        expr: LOG_ID
+        data_type: VARCHAR
+        unique: true
+      - name: USER_ROLE
+        description: Role of user performing action
+        expr: USER_ROLE
+        data_type: VARCHAR
+      - name: USER_ID
+        description: User identifier
+        expr: USER_ID
+        data_type: VARCHAR
+      - name: ACTION_TYPE
+        description: Type of action performed
+        expr: ACTION_TYPE
+        data_type: VARCHAR
+      - name: ENTITY_TYPE
+        description: Type of entity affected
+        expr: ENTITY_TYPE
+        data_type: VARCHAR
+      - name: ENTITY_ID
+        description: ID of entity affected
+        expr: ENTITY_ID
+        data_type: VARCHAR
+      - name: STATUS
+        description: Action status (SUCCESS, FAILED)
+        expr: STATUS
+        data_type: VARCHAR
+    time_dimensions:
+      - name: TIMESTAMP
+        description: When action occurred
+        expr: TIMESTAMP
+        data_type: TIMESTAMP
+    measures:
+      - name: ACTION_COUNT
+        description: Count of actions
+        expr: COUNT(*)
+        data_type: NUMBER
+        default_aggregation: sum
+
+  - name: NOTIFICATIONS
+    description: User notifications for platform events
+    base_table:
+      database: HOUSING_PLATFORM
+      schema: CORE
+      table: NOTIFICATIONS
+    primary_key:
+      columns:
+        - NOTIFICATION_ID
+    dimensions:
+      - name: NOTIFICATION_ID
+        description: Unique notification identifier
+        expr: NOTIFICATION_ID
+        data_type: VARCHAR
+        unique: true
+      - name: USER_ID
+        description: Recipient user ID
+        expr: USER_ID
+        data_type: VARCHAR
+      - name: USER_TYPE
+        description: Type of user (BORROWER, ORIGINATOR, INVESTOR)
+        expr: USER_TYPE
+        data_type: VARCHAR
+      - name: NOTIFICATION_TYPE
+        description: Type of notification
+        expr: NOTIFICATION_TYPE
+        data_type: VARCHAR
+      - name: TITLE
+        description: Notification title
+        expr: TITLE
+        data_type: VARCHAR
+      - name: IS_READ
+        description: Whether notification has been read
+        expr: IS_READ
+        data_type: BOOLEAN
+    time_dimensions:
+      - name: CREATED_AT
+        description: When notification was created
+        expr: CREATED_AT
+        data_type: TIMESTAMP
+    measures:
+      - name: NOTIFICATION_COUNT
+        description: Count of notifications
+        expr: COUNT(*)
+        data_type: NUMBER
+        default_aggregation: sum
+      - name: UNREAD_COUNT
+        description: Count of unread notifications
+        expr: COUNT_IF(IS_READ = FALSE)
+        data_type: NUMBER
+        default_aggregation: sum
+
+relationships:
+  - name: borrower_to_loans
+    left_table: BORROWERS
+    right_table: LOANS
+    join_type: left_outer
+    relationship_columns:
+      - left_column: AADHAAR_ID
+        right_column: BORROWER_ID
+
+  - name: loans_to_pools
+    left_table: LOANS
+    right_table: RMBS_POOLS
+    join_type: left_outer
+    relationship_columns:
+      - left_column: POOL_ID
+        right_column: POOL_ID
+
+  - name: loans_to_amortization
+    left_table: LOANS
+    right_table: LOAN_AMORTIZATION
+    join_type: left_outer
+    relationship_columns:
+      - left_column: LOAN_ID
+        right_column: LOAN_ID
+
+  - name: loans_to_emi_payments
+    left_table: LOANS
+    right_table: EMI_PAYMENTS
+    join_type: left_outer
+    relationship_columns:
+      - left_column: LOAN_ID
+        right_column: LOAN_ID
+
+  - name: pools_to_investments
+    left_table: RMBS_POOLS
+    right_table: INVESTOR_PORTFOLIO
+    join_type: left_outer
+    relationship_columns:
+      - left_column: POOL_ID
+        right_column: POOL_ID
+
+  - name: borrower_to_notifications
+    left_table: BORROWERS
+    right_table: NOTIFICATIONS
+    join_type: left_outer
+    relationship_columns:
+      - left_column: AADHAAR_ID
+        right_column: USER_ID
+
+verified_queries:
+  - name: Total loan portfolio value
+    question: What is the total value of all loans?
+    sql: SELECT SUM(AMOUNT) AS TOTAL_PORTFOLIO FROM HOUSING_PLATFORM.CORE.LOANS
+
+  - name: Loan status distribution
+    question: How many loans are in each status?
+    sql: |
+      SELECT STATUS, COUNT(*) AS LOAN_COUNT, SUM(AMOUNT) AS TOTAL_VALUE
+      FROM HOUSING_PLATFORM.CORE.LOANS
+      GROUP BY STATUS
+      ORDER BY LOAN_COUNT DESC
+
+  - name: RMBS pool summary
+    question: Show me the RMBS pool summary
+    sql: |
+      SELECT POOL_ID, NAME, LOAN_COUNT, TOTAL_VALUE, STATUS
+      FROM HOUSING_PLATFORM.CORE.RMBS_POOLS
+      ORDER BY AGGREGATION_DATE DESC
+
+  - name: EMI collection summary
+    question: What is the EMI collection status?
+    sql: |
+      SELECT 
+        PAYMENT_STATUS,
+        COUNT(*) AS EMI_COUNT,
+        SUM(TOTAL_EMI) AS TOTAL_DUE,
+        SUM(PAID_AMOUNT) AS TOTAL_PAID
+      FROM HOUSING_PLATFORM.CORE.EMI_PAYMENTS
+      GROUP BY PAYMENT_STATUS
+
+  - name: Investor portfolio summary
+    question: Show investor investment summary
+    sql: |
+      SELECT 
+        INVESTOR_ID,
+        COUNT(DISTINCT POOL_ID) AS POOLS_INVESTED,
+        SUM(INVESTMENT_AMOUNT) AS TOTAL_INVESTED,
+        SUM(CURRENT_VALUE) AS CURRENT_VALUE
+      FROM HOUSING_PLATFORM.CORE.INVESTOR_PORTFOLIO
+      GROUP BY INVESTOR_ID
+
+  - name: Borrower loan amortization
+    question: Show loan amortization schedule
+    sql: |
+      SELECT 
+        L.LOAN_ID, B.NAME AS BORROWER,
+        A.EMI_NUMBER, A.DUE_DATE, A.EMI_AMOUNT,
+        A.PRINCIPAL_COMPONENT, A.INTEREST_COMPONENT, A.CLOSING_BALANCE
+      FROM HOUSING_PLATFORM.CORE.LOAN_AMORTIZATION A
+      JOIN HOUSING_PLATFORM.CORE.LOANS L ON A.LOAN_ID = L.LOAN_ID
+      JOIN HOUSING_PLATFORM.CORE.BORROWERS B ON L.BORROWER_ID = B.AADHAAR_ID
+      ORDER BY L.LOAN_ID, A.EMI_NUMBER
+
+  - name: Average credit score by status
+    question: What is the average credit score by loan status?
+    sql: |
+      SELECT 
+        L.STATUS,
+        AVG(B.CREDIT_SCORE) AS AVG_CREDIT_SCORE,
+        COUNT(*) AS LOAN_COUNT
+      FROM HOUSING_PLATFORM.CORE.LOANS L
+      JOIN HOUSING_PLATFORM.CORE.BORROWERS B ON L.BORROWER_ID = B.AADHAAR_ID
+      GROUP BY L.STATUS
+
+  - name: Monthly EMI due
+    question: How much EMI is due this month?
+    sql: |
+      SELECT 
+        SUM(EMI_AMOUNT) AS TOTAL_EMI_DUE,
+        COUNT(*) AS EMI_COUNT
+      FROM HOUSING_PLATFORM.CORE.LOAN_AMORTIZATION
+      WHERE DATE_TRUNC('MONTH', DUE_DATE) = DATE_TRUNC('MONTH', CURRENT_DATE())
+
+  - name: Platform statistics
+    question: Show platform statistics
+    sql: |
+      SELECT 
+        (SELECT COUNT(*) FROM HOUSING_PLATFORM.CORE.BORROWERS) AS TOTAL_BORROWERS,
+        (SELECT COUNT(*) FROM HOUSING_PLATFORM.CORE.LOANS) AS TOTAL_LOANS,
+        (SELECT SUM(AMOUNT) FROM HOUSING_PLATFORM.CORE.LOANS) AS PORTFOLIO_VALUE,
+        (SELECT COUNT(DISTINCT POOL_ID) FROM HOUSING_PLATFORM.CORE.RMBS_POOLS) AS RMBS_POOLS,
+        (SELECT COUNT(DISTINCT INVESTOR_ID) FROM HOUSING_PLATFORM.CORE.INVESTOR_PORTFOLIO) AS INVESTORS

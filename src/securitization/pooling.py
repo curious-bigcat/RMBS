@@ -25,12 +25,33 @@ class RMBSPool:
 
 
 def assign_rmbs_pool(loan: Loan, reference_date: date = None) -> tuple[Loan, Optional[str]]:
-    raise NotImplementedError("Feature: assign_rmbs_pool")
+    if reference_date is None:
+        reference_date = date.today()
+    
+    eligible_date = calculate_pool_eligible_date(loan.disbursement_date)
+    loan.pool_eligible_date = eligible_date
+    
+    # Check if MHP has been met
+    if reference_date >= eligible_date:
+        pool = get_pool_for_date(eligible_date)
+        loan.pool_id = pool.pool_id
+        return loan, pool.name
+    
+    # Not yet eligible
+    return loan, None
 
 
 def calculate_pool_eligible_date(disbursement_date: date) -> date:
-    raise NotImplementedError("Feature: calculate_pool_eligible_date")
+    return disbursement_date + relativedelta(months=MHP_MONTHS)
 
 
 def get_pool_for_date(eligible_date: date) -> RMBSPool:
-    raise NotImplementedError("Feature: get_pool_for_date")
+    # Generate pool based on quarter
+    quarter = (eligible_date.month - 1) // 3 + 1
+    pool_id = f"RMBS-{eligible_date.year}-Q{quarter}"
+    return RMBSPool(
+        pool_id=pool_id,
+        name=f"Housing Pool {eligible_date.year} Q{quarter}",
+        aggregation_date=eligible_date,
+        trustee="India Housing Trust",
+    )

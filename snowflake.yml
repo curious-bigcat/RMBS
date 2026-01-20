@@ -1,0 +1,32 @@
+definition_version: 2
+
+entities:
+  # Standalone Streamlit App for MVP
+  housing_streamlit:
+    type: streamlit
+    identifier:
+      name: HOUSING_FOR_ALL_APP
+      schema: CORE
+      database: HOUSING_PLATFORM
+    title: "Housing for All Platform"
+    query_warehouse: COMPUTE_WH
+    main_file: streamlit_app.py
+    artifacts:
+      - streamlit_app.py
+      - src/
+
+  # Native App Package (full deployment)
+  housing_platform:
+    type: application package
+    identifier:
+      name: HOUSING_FOR_ALL_PLATFORM
+    artifacts:
+      - src: manifest.yml
+        dest: manifest.yml
+      - src: setup.sql
+        dest: setup.sql
+      - src: src/
+        dest: src/
+      - src: streamlit_app.py
+        dest: streamlit_app.py
+    manifest: manifest.yml

@@ -1,0 +1,36 @@
+manifest_version: 1
+version:
+  name: "Housing for All Platform"
+  label: "v0.4.0"
+  comment: "Affordable housing marketplace with RMBS securitization"
+
+artifacts:
+  setup_script: setup.sql
+  readme: README.md
+  default_streamlit: streamlit_app.py
+
+configuration:
+  log_level: INFO
+  trace_level: ALWAYS
+
+privileges:
+  - CREATE DATABASE:
+      description: "Create application database for storing borrower and loan data"
+  - CREATE WAREHOUSE:
+      description: "Create compute warehouse for processing"
+  - EXECUTE TASK:
+      description: "Execute scheduled tasks for RMBS pool aggregation"
+
+# Note: External access references removed for MVP
+# Using internal mock tables (MOCK_UIDAI_REGISTRY, MOCK_DIGILOCKER_DOCUMENTS) 
+# for Aadhaar and DigiLocker simulation
+#
+# Features:
+# - eKYC Integration (Mock UIDAI/DigiLocker)
+# - Eligibility Engine (Credit score, DTI, age validation)
+# - Loan Origination (Application and approval workflow)
+# - EMI Tracking (Amortization and payments)
+# - RMBS Securitization (6-month MHP pools)
+# - Investor Portal (Pool investment)
+# - Audit Logging (Comprehensive trail)
+# - Role-based Access (4 user roles)
